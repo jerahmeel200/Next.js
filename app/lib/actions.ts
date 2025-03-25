@@ -1,3 +1,4 @@
+ 
 "use server";
 import { z } from "zod";
 
@@ -9,7 +10,7 @@ if (!process.env.POSTGRES_URL) {
   throw new Error("POSTGRES_URL environment variable is not defined");
 }
 
-const sql = postgres(process.env.POSTGRES_URL, { ssl: { rejectUnauthorized: false } });
+const sql = postgres(process.env.POSTGRES_URL as string, { ssl: { rejectUnauthorized: false } });
 
 const FormSchema = z.object({
   id: z.string(),
@@ -18,13 +19,36 @@ const FormSchema = z.object({
   status: z.string(),
   date: z.string(),
 });
+const UpdateInvoice = FormSchema.omit({ id: true, date: true }); 
+ export async function updateInvoice(id: string, formData: FormData){
+const { customerId, amount, status } = UpdateInvoice.parse({
+  customerId: formData.get('customerId') as string,
+  amount: formData.get('amount') as string,
+  status: formData.get('status') as string,
+
+ })
+ const amountInCents = amount * 100;
+
+
+ await sql`
+ UPDATE invoices
+ SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+ WHERE id = ${id}
+ `;
+
+
+ revalidatePath('/dashboard/invoices');
+ redirect('/dashboard/invoices');
+ }
+
+
 
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 export async function createInvoice(formData: FormData) {
   const { customerId, amount, status } = CreateInvoice.parse({
-    customerId: formData.get("customerId"),
-    amount: formData.get("amount"),
-    status: formData.get("status"),
+    customerId: formData.get("customerId") as string,
+    amount: formData.get("amount") as string,
+    status: formData.get("status") as string,
   });
   // console.log(rawFormData)
   const amountInCents = amount * 100;
