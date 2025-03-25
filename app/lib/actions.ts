@@ -1,4 +1,3 @@
- 
 "use server";
 import { z } from "zod";
 
@@ -10,7 +9,9 @@ if (!process.env.POSTGRES_URL) {
   throw new Error("POSTGRES_URL environment variable is not defined");
 }
 
-const sql = postgres(process.env.POSTGRES_URL as string, { ssl: { rejectUnauthorized: false } });
+const sql = postgres(process.env.POSTGRES_URL as string, {
+  ssl: { rejectUnauthorized: false },
+});
 
 const FormSchema = z.object({
   id: z.string(),
@@ -19,29 +20,28 @@ const FormSchema = z.object({
   status: z.string(),
   date: z.string(),
 });
-const UpdateInvoice = FormSchema.omit({ id: true, date: true }); 
- export async function updateInvoice(id: string, formData: FormData){
-const { customerId, amount, status } = UpdateInvoice.parse({
-  customerId: formData.get('customerId') as string,
-  amount: formData.get('amount') as string,
-  status: formData.get('status') as string,
+const UpdateInvoice = FormSchema.omit({ id: true, date: true });
+export async function updateInvoice(id: string, formData: FormData) {
+  const { customerId, amount, status } = UpdateInvoice.parse({
+    customerId: formData.get("customerId") as string,
+    amount: formData.get("amount") as string,
+    status: formData.get("status") as string,
+  });
+  const amountInCents = amount * 100;
 
- })
- const amountInCents = amount * 100;
+  try {
+    await sql`
+  UPDATE invoices
+  SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+  WHERE id = ${id}
+  `;
+  } catch (error) {
+    console.log(error);
+  }
 
-
- await sql`
- UPDATE invoices
- SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
- WHERE id = ${id}
- `;
-
-
- revalidatePath('/dashboard/invoices');
- redirect('/dashboard/invoices');
- }
-
-
+  revalidatePath("/dashboard/invoices");
+  redirect("/dashboard/invoices");
+}
 
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 export async function createInvoice(formData: FormData) {
@@ -53,23 +53,27 @@ export async function createInvoice(formData: FormData) {
   // console.log(rawFormData)
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split("T")[0];
+  try {
+    await sql`
 
-  await sql`
-
-INSERT INTO invoices (customer_id, amount, status, date)
-VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-
-`;
+  INSERT INTO invoices (customer_id, amount, status, date)
+  VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+  
+  `;
+  } catch (error) {
+    console.log(error);
+  }
 
   revalidatePath("/dashboard/invoices");
   redirect("/dashboard/invoices");
 }
 
-
 export async function deleteInvoice(id: string) {
-  await sql`DELETE FROM invoices WHERE id = ${id}
-`;
+  throw new Error('Failed to Delete Invoice');
 
-revalidatePath('/dashboard/invoices');
-
+ 
+    await sql`DELETE FROM invoices WHERE id = ${id}
+    `;
+ 
+  revalidatePath("/dashboard/invoices");
 }
