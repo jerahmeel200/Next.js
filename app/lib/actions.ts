@@ -4,6 +4,8 @@ import { z } from "zod";
 import postgres from "postgres";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
 
 if (!process.env.POSTGRES_URL) {
   throw new Error("POSTGRES_URL environment variable is not defined");
@@ -43,7 +45,24 @@ const FormSchema = z.object({
 });
 
 
-
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    await signIn('credentials', formData);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case 'CredentialsSignin':
+          return 'Invalid credentials.';
+        default:
+          return 'Something went wrong.';
+      }
+    }
+    throw error;
+  }
+}
 
 const UpdateInvoice = FormSchema.omit({ id: true, date: true });
 export async function updateInvoice(
